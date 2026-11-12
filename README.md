@@ -30,16 +30,22 @@ Content lives in `content/published/*.json` and `content/draft/*.json`. Set `CMS
 
 Edit it at `/admin/about`. It has an introduction with a main photo, your story, "what to expect", a therapist profile, qualifications, and where you work. The therapist profile and qualifications stay hidden until you add a real name, bio or qualification, so nothing is shown that you have not written. Towns listed under Site settings, Search and social appear as chips in "Where I work". The page is in the sitemap and carries its own structured data (About page, breadcrumbs and, once you add a name, the therapist).
 
-## The four pages
+## Site pages
 
 | Page | Address | Edit in the CMS |
 | --- | --- | --- |
 | Home | `/` | Home page |
 | About us | `/about` | About us page |
 | Collection | `/collection` | Collection page |
+| Gallery | `/gallery` | Gallery page |
+| Insights | `/insights` | Insights page |
 | Contact us | `/contact` | Contact page |
 
-Menu, footer, phone and WhatsApp number are under **Site settings**. If you saved the menu in Site settings earlier, open it and make sure it lists only these four pages (Home, About us, Collection, Contact us).
+Menu, footer, phone and WhatsApp number are under **Site settings**. The starter menu links to all six pages; if you previously customized the menu, add Gallery or Insights there if you want visitors to see those links.
+
+**Insights.** Add and edit guides in `/admin/insights`. Articles support drafts, scheduled publish dates, summaries, cover images, categories, and basic Markdown. Published articles appear at `/insights`, have individual pages, and are included in the RSS feed and sitemap.
+
+**Gallery page.** Manage the standalone photo and video gallery in `/admin/gallery`. It shares the media library with the home and collection pages.
 
 **Collection page.** Your treatment menu, grouped (for example Relax, Release, Complete). Each treatment has a description, "good for" points, lengths and prices (one per line, like `60 minutes | RWF 30,000`) and an optional photo. Every Book button opens WhatsApp with the treatment already written in. Below the menu is the **photo gallery**: photos, uploaded videos or YouTube/Vimeo links, opened large in a full-screen viewer (arrow keys, swipe, Escape). Give every photo a description for search and screen readers; the gallery stays hidden until you add something. The Home page has its own smaller gallery section.
 
@@ -85,3 +91,99 @@ The page then appears in the CMS automatically.
 ## Hosting note
 
 The store writes to the file system, so host on a server or container with a persistent disk (a VPS, Fly.io, Railway, Render with a disk). On serverless hosts such as Vercel, replace the functions in `src/lib/cms/store.ts` with a database or object storage version. Nothing else needs to change.
+
+## Deploying to a VPS with GitHub Actions
+
+The `Build and deploy` workflow builds the standalone Next.js app on GitHub Actions and copies its runtime bundle to the VPS. The VPS does not need the repository, a full development install, or build tools; the standalone bundle contains the Node modules required to run the app. A push to `main` deploys automatically; the workflow can also be started manually from the GitHub Actions tab.
+
+### VPS setup (Ubuntu/Debian with systemd and nginx)
+
+Install Node.js 22, nginx, and rsync on the VPS. Create a deployment account with SSH access and passwordless permission to restart and check this one service. Prepare the app and persistent CMS directories (replace `deploy` if your SSH account has a different name):
+
+```bash
+sudo mkdir -p /opt/zamukapos/app /var/lib/zamukapos/content
+sudo chown -R deploy:deploy /opt/zamukapos/app
+sudo chown -R www-data:www-data /var/lib/zamukapos
+```
+
+Create `/etc/zamukapos.env` on the VPS with production values; generate the session secret with `openssl rand -hex 32`. Do not commit these secrets or put them in GitHub Actions build variables:
+
+```bash
+ADMIN_PASSWORD=use-a-long-unique-password
+SESSION_SECRET=replace-this-with-the-output-of-openssl-rand-hex-32
+CMS_DATA_DIR=/var/lib/zamukapos/content
+SITE_URL=https://massage.zamukapos.io
+```
+
+Restrict the file with `sudo chown root:root /etc/zamukapos.env && sudo chmod 600 /etc/zamukapos.env`.
+
+Create `/etc/systemd/system/zamukapos.service`:
+
+```ini
+[Unit]
+Description=ZamukaPos website
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/zamukapos/app
+EnvironmentFile=/etc/zamukapos.env
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Allow only the deploy account to restart/check this service without a password by adding this line to a sudoers file using `visudo` (replace `deploy` if needed):
+
+```text
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart zamukapos, /usr/bin/systemctl is-active --quiet zamukapos
+```
+
+Then enable the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable zamukapos
+```
+
+Configure nginx for `massage.zamukapos.io`:
+
+```nginx
+server {
+    listen 80;
+    server_name massage.zamukapos.io;
+    client_max_body_size 60m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Point the `massage` subdomain's DNS A record to the VPS, allow inbound web traffic, and enable HTTPS (for example with Certbot). Set the website address in the CMS under Site settings → Search and social to `https://massage.zamukapos.io` as well; that value takes precedence over `SITE_URL`. Keep `/var/lib/zamukapos/content` when deploying: it stores CMS pages, drafts, history, and uploaded media.
+
+### GitHub configuration
+
+In the repository's **Settings → Secrets and variables → Actions**, add these repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `VPS_HOST` | VPS IP address or SSH hostname |
+| `VPS_USER` | SSH deployment account (for example `deploy`) |
+| `VPS_SSH_KEY` | Private SSH key for that account |
+| `VPS_KNOWN_HOSTS` | Verified SSH host-key line for the VPS |
+
+Install the matching public key in the deployment account's `~/.ssh/authorized_keys`. Obtain the host-key fingerprint through a trusted channel before adding its verified known-hosts line; do not blindly trust an unverified `ssh-keyscan` result. Once these are set up, push to `main` and check **Actions → Build and deploy** for the build and deployment result.

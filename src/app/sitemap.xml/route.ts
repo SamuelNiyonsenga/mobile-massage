@@ -1,16 +1,26 @@
 import { getDoc, publishedAt } from '@/lib/cms/store';
-import type { AboutContent, CollectionContent, ContactContent, HomeContent, SiteContent } from '@/lib/cms/defaults';
+import type {
+  AboutContent,
+  CollectionContent,
+  ContactContent,
+  GalleryContent,
+  HomeContent,
+  InsightsContent,
+  SiteContent,
+} from '@/lib/cms/defaults';
 import { sitemapXml } from '@/lib/seo';
 import { getSiteUrl } from '@/lib/siteUrl';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const [home, about, collection, contact, site] = await Promise.all([
+  const [home, about, collection, contact, gallery, insights, site] = await Promise.all([
     getDoc<HomeContent>('home'),
     getDoc<AboutContent>('about'),
     getDoc<CollectionContent>('collection'),
     getDoc<ContactContent>('contact'),
+    getDoc<GalleryContent>('gallery'),
+    getDoc<InsightsContent>('insights'),
     getDoc<SiteContent>('site'),
   ]);
   const base = await getSiteUrl(site.seo.siteUrl);
@@ -22,11 +32,13 @@ export async function GET() {
     });
   }
 
-  const [homeAt, aboutAt, collectionAt, contactAt] = await Promise.all([
+  const [homeAt, aboutAt, collectionAt, contactAt, galleryAt, insightsAt] = await Promise.all([
     publishedAt('home'),
     publishedAt('about'),
     publishedAt('collection'),
     publishedAt('contact'),
+    publishedAt('gallery'),
+    publishedAt('insights'),
   ]);
   return new Response(
     sitemapXml({
@@ -35,7 +47,16 @@ export async function GET() {
       about,
       collection,
       contact,
-      lastModified: { home: homeAt, about: aboutAt, collection: collectionAt, contact: contactAt },
+      gallery,
+      insights,
+      lastModified: {
+        home: homeAt,
+        about: aboutAt,
+        collection: collectionAt,
+        contact: contactAt,
+        gallery: galleryAt,
+        insights: insightsAt,
+      },
     }),
     {
       headers: {

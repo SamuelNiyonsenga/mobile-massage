@@ -133,6 +133,46 @@ export interface SiteContent {
   footer: { blurb: string; groups: { title: string; links: Link[] }[]; legal: string };
 }
 
+export interface GalleryItem {
+  kind: 'image' | 'video';
+  src: string;
+  poster: string;
+  alt: string;
+  caption: string;
+  category: string;
+}
+
+export interface GalleryContent {
+  seo: { title: string; description: string; shareImage: string; noindex: boolean };
+  intro: { script: string; headline: string; text: string };
+  items: GalleryItem[];
+  cta: HomeContent['cta'];
+}
+
+export interface ArticleEntry {
+  slug: string;
+  title: string;
+  category: string;
+  excerpt: string;
+  date: string;
+  updated: string;
+  author: string;
+  body: string;
+  cover: string;
+  coverAlt: string;
+  tone: 'sand' | 'rose' | 'sage' | 'clay';
+  icon: IconName;
+  status: 'draft' | 'published';
+  featured: boolean;
+}
+
+export interface InsightsContent {
+  seo: { title: string; description: string; shareImage: string; noindex: boolean };
+  intro: { script: string; headline: string; text: string };
+  articles: { items: ArticleEntry[] };
+  cta: HomeContent['cta'];
+}
+
 const CTA_DEFAULT: HomeContent['cta'] = {
   visible: true,
   title: 'Ready to relax?',
@@ -443,6 +483,8 @@ export const SITE_DEFAULTS: SiteContent = {
       { label: 'Home', href: '/' },
       { label: 'About us', href: '/about' },
       { label: 'Collection', href: '/collection' },
+      { label: 'Gallery', href: '/gallery' },
+      { label: 'Insights', href: '/insights' },
       { label: 'Contact us', href: '/contact' },
     ],
   },
@@ -476,4 +518,36 @@ export const SITE_DEFAULTS: SiteContent = {
     ],
     legal: 'All rights reserved.',
   },
+};
+
+export const GALLERY_DEFAULTS: GalleryContent = {
+  seo: {
+    title: 'Massage Photos and Videos | Mobile Massage Kigali',
+    description: 'See photos and videos from Mobile Massage Home Service in Kigali. Treatments brought to your home, hotel or wherever you are.',
+    shareImage: '',
+    noindex: false,
+  },
+  intro: {
+    script: 'A closer look',
+    headline: 'Photos and videos',
+    text: 'A look at the treatments and the calm they bring.',
+  },
+  items: [],
+  cta: { ...CTA_DEFAULT },
+};
+
+export const INSIGHTS_DEFAULTS: InsightsContent = {
+  seo: {
+    title: 'Massage Insights and Guides | Mobile Massage Kigali',
+    description: 'Helpful massage guides and wellness insights from Mobile Massage Home Service in Kigali.',
+    shareImage: '',
+    noindex: false,
+  },
+  intro: {
+    script: 'A little time for you',
+    headline: 'Insights',
+    text: 'Practical guides to massage, relaxation and feeling your best.',
+  },
+  articles: { items: [] },
+  cta: { ...CTA_DEFAULT },
 };

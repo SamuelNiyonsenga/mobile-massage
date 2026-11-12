@@ -64,10 +64,10 @@ async function contentText(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const stage of ['published', 'draft']) {
     try {
-      const dir = path.join(DATA_ROOT, stage);
-      for (const f of await fs.readdir(dir)) {
+      const dir = path.join(/*turbopackIgnore: true*/ DATA_ROOT, stage);
+      for (const f of await fs.readdir(/*turbopackIgnore: true*/ dir)) {
         if (f.endsWith('.json')) {
-          out[`${stage}/${f.replace('.json', '')}`] = await fs.readFile(path.join(dir, f), 'utf8');
+          out[`${stage}/${f.replace('.json', '')}`] = await fs.readFile(/*turbopackIgnore: true*/ path.join(dir, f), 'utf8');
         }
       }
     } catch {

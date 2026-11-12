@@ -3,18 +3,29 @@
  * Pure functions only (no Next.js imports) so they are easy to test.
  */
 import type { Metadata } from 'next';
-import type { AboutContent, CollectionContent, ContactContent, HomeContent, SiteContent } from '@/lib/cms/defaults';
+import type {
+  AboutContent,
+  CollectionContent,
+  ContactContent,
+  GalleryContent,
+  HomeContent,
+  InsightsContent,
+  SiteContent,
+} from '@/lib/cms/defaults';
 import { treatmentsOf } from '@/lib/collection';
 import { isFileVideo, parseEmbed } from '@/lib/embed';
+import { articlePath, todayISO, visibleArticles, type Article } from '@/lib/insights';
 
 export const BUSINESS_NAME = 'Mobile Massage Home Service - Kigali';
 
 /** Public pages that belong in the sitemap. Add a row when a new page is built. */
-export type PageDoc = 'home' | 'about' | 'collection' | 'contact';
+export type PageDoc = 'home' | 'about' | 'collection' | 'contact' | 'gallery' | 'insights';
 export const PUBLIC_PAGES: { path: string; doc: PageDoc }[] = [
   { path: '/', doc: 'home' },
   { path: '/about', doc: 'about' },
   { path: '/collection', doc: 'collection' },
+  { path: '/gallery', doc: 'gallery' },
+  { path: '/insights', doc: 'insights' },
   { path: '/contact', doc: 'contact' },
 ];
 
@@ -298,22 +309,166 @@ export function contactStructuredData(c: ContactContent, home: HomeContent, site
 const xmlEscape = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+const articleText = (value: string) =>
+  value
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_`~]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+export function articleTitleTag(article: Article): string {
+  return `${article.title} | ${BUSINESS_NAME}`;
+}
+
+export function articleBlurb(article: Article): string {
+  const text = articleText(article.excerpt || article.body);
+  return text.length > 160 ? `${text.slice(0, 157).trimEnd()}...` : text;
+}
+
+export function articleStructuredData(
+  article: Article,
+  insights: InsightsContent,
+  home: HomeContent,
+  site: SiteContent,
+  base: string,
+): Json {
+  const url = absoluteUrl(base, articlePath(article.slug));
+  const data: Json = {
+    '@type': 'BlogPosting',
+    '@id': `${url}#article`,
+    url,
+    headline: article.title,
+    description: articleBlurb(article),
+    ...(article.category ? { articleSection: article.category } : {}),
+    ...(article.date ? { datePublished: article.date } : {}),
+    ...(article.updated || article.date ? { dateModified: article.updated || article.date } : {}),
+    isPartOf: { '@type': 'Blog', '@id': `${base}/insights#blog`, name: insights.seo.title },
+    publisher: { '@id': `${base}/#business` },
+    ...(article.author ? { author: { '@type': 'Person', name: article.author } } : {}),
+    ...(article.cover ? { image: absoluteUrl(base, article.cover) } : {}),
+  };
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [businessNode(home, site, base), data],
+  };
+}
+
+export function insightsStructuredData(
+  insights: InsightsContent,
+  articles: Article[],
+  home: HomeContent,
+  site: SiteContent,
+  base: string,
+): Json {
+  const url = absoluteUrl(base, '/insights');
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      businessNode(home, site, base),
+      {
+        '@type': 'CollectionPage',
+        '@id': `${url}#page`,
+        url,
+        name: insights.seo.title,
+        description: insights.seo.description,
+        mainEntity: {
+          '@type': 'ItemList',
+          itemListElement: articles.map((article, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            url: absoluteUrl(base, articlePath(article.slug)),
+            name: article.title,
+          })),
+        },
+      },
+    ],
+  };
+}
+
+export function galleryStructuredData(
+  gallery: GalleryContent,
+  home: HomeContent,
+  site: SiteContent,
+  base: string,
+): Json {
+  const url = absoluteUrl(base, '/gallery');
+  const graph: Json[] = [
+    businessNode(home, site, base),
+    {
+      '@type': 'CollectionPage',
+      '@id': `${url}#page`,
+      url,
+      name: gallery.seo.title,
+      description: gallery.seo.description,
+      isPartOf: { '@id': `${base}/#website` },
+    },
+    crumbs(base, 'Gallery', '/gallery'),
+  ];
+  const images = gallery.items
+    .filter((item) => item.kind === 'image' && item.src)
+    .map((item) => ({
+      '@type': 'ImageObject',
+      contentUrl: absoluteUrl(base, item.src),
+      caption: item.caption || item.alt || undefined,
+    }));
+  const videos = videoObjectsFrom(gallery.items, base);
+  if (images.length || videos.length) {
+    graph.push({ '@type': 'ItemList', itemListElement: [...images, ...videos] });
+  }
+  return { '@context': 'https://schema.org', '@graph': graph };
+}
+
+export function rssXml(opts: { base: string; insights: InsightsContent; articles: Article[] }): string {
+  const items = opts.articles
+    .map((article) => {
+      const url = absoluteUrl(opts.base, articlePath(article.slug));
+      const date = article.date ? new Date(`${article.date}T00:00:00Z`) : undefined;
+      const pubDate = date && !Number.isNaN(date.getTime()) ? `<pubDate>${date.toUTCString()}</pubDate>` : '';
+      return (
+        '<item>' +
+        `<title>${xmlEscape(article.title)}</title>` +
+        `<link>${xmlEscape(url)}</link>` +
+        `<guid isPermaLink="true">${xmlEscape(url)}</guid>` +
+        `<description>${xmlEscape(articleBlurb(article))}</description>` +
+        (article.category ? `<category>${xmlEscape(article.category)}</category>` : '') +
+        pubDate +
+        '</item>'
+      );
+    })
+    .join('');
+  const channelUrl = absoluteUrl(opts.base, '/insights');
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<rss version="2.0"><channel>' +
+    `<title>${xmlEscape(opts.insights.seo.title)}</title>` +
+    `<link>${xmlEscape(channelUrl)}</link>` +
+    `<description>${xmlEscape(opts.insights.seo.description)}</description>` +
+    items +
+    '</channel></rss>\n'
+  );
+}
+
 export function sitemapXml(opts: {
   base: string;
   home: HomeContent;
   about: AboutContent;
-  /** Without these the Collection or Contact pages are left out */
+  /** Pages without their content document are left out */
   collection?: CollectionContent;
   contact?: ContactContent;
+  gallery?: GalleryContent;
+  insights?: InsightsContent;
   /** ISO date each page was last published, by page */
   lastModified?: Partial<Record<PageDoc, string>>;
 }): string {
-  const { base, home, about, collection, contact } = opts;
+  const { base, home, about, collection, contact, gallery, insights } = opts;
   const hidden: Record<PageDoc, boolean> = {
     home: home.seo.noindex,
     about: about.seo.noindex,
     collection: !collection || collection.seo.noindex,
     contact: !contact || contact.seo.noindex,
+    gallery: !gallery || gallery.seo.noindex,
+    insights: !insights || insights.seo.noindex,
   };
   const pages = PUBLIC_PAGES.filter((p) => !hidden[p.doc]);
 
@@ -339,11 +494,20 @@ export function sitemapXml(opts: {
       const main = absoluteUrl(base, about.intro.image);
       if (main) images.add(main);
       if (therapistShown(about) && about.therapist.photo) images.add(absoluteUrl(base, about.therapist.photo));
+    } else if (p.doc === 'gallery' && gallery) {
+      for (const item of gallery.items) {
+        if (item.kind === 'image' && item.src) images.add(absoluteUrl(base, item.src));
+      }
     }
     for (const img of images) parts.push(`<image:image><image:loc>${xmlEscape(img)}</image:loc></image:image>`);
 
-    if (p.doc === 'home' || (p.doc === 'collection' && collection)) {
-      const videos = p.doc === 'home' ? videoObjects(home, base) : videoObjectsFrom(collection!.gallery.items, base);
+    if (p.doc === 'home' || (p.doc === 'collection' && collection) || (p.doc === 'gallery' && gallery)) {
+      const videos =
+        p.doc === 'home'
+          ? videoObjects(home, base)
+          : p.doc === 'collection'
+            ? videoObjectsFrom(collection!.gallery.items, base)
+            : videoObjectsFrom(gallery!.items, base);
       for (const v of videos) {
         parts.push(
           '<video:video>' +
@@ -357,6 +521,17 @@ export function sitemapXml(opts: {
     }
     return `<url>${parts.join('')}</url>`;
   });
+  if (insights && !hidden.insights) {
+    for (const article of visibleArticles(insights, { preview: false, today: todayISO() })) {
+      const parts = [`<loc>${xmlEscape(absoluteUrl(base, articlePath(article.slug)))}</loc>`];
+      const modified = article.updated || article.date;
+      if (modified) parts.push(`<lastmod>${xmlEscape(modified)}</lastmod>`);
+      if (article.cover) {
+        parts.push(`<image:image><image:loc>${xmlEscape(absoluteUrl(base, article.cover))}</image:loc></image:image>`);
+      }
+      urls.push(`<url>${parts.join('')}</url>`);
+    }
+  }
 
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -487,6 +662,7 @@ export function pageMetadata(opts: {
   imageAlt?: string;
   noindex: boolean;
   googleVerification?: string;
+  feed?: string;
   type?: 'website' | 'article';
   publishedTime?: string;
   modifiedTime?: string;
@@ -499,7 +675,12 @@ export function pageMetadata(opts: {
     metadataBase: opts.base ? new URL(opts.base) : undefined,
     title: { absolute: opts.title },
     description: opts.description,
-    alternates: url ? { canonical: url } : undefined,
+    alternates: url
+      ? {
+          canonical: url,
+          ...(opts.feed ? { types: { 'application/rss+xml': opts.feed } } : {}),
+        }
+      : undefined,
     robots: opts.noindex
       ? { index: false, follow: false }
       : {

@@ -1,5 +1,13 @@
 import type { DocDef, Field } from './types';
-import { ABOUT_DEFAULTS, COLLECTION_DEFAULTS, CONTACT_DEFAULTS, HOME_DEFAULTS, SITE_DEFAULTS } from './defaults';
+import {
+  ABOUT_DEFAULTS,
+  COLLECTION_DEFAULTS,
+  CONTACT_DEFAULTS,
+  GALLERY_DEFAULTS,
+  HOME_DEFAULTS,
+  INSIGHTS_DEFAULTS,
+  SITE_DEFAULTS,
+} from './defaults';
 
 const visible: Field = {
   name: 'visible',
@@ -667,7 +675,138 @@ export const SITE_DEF: DocDef = {
   ],
 };
 
-export const DOCS = { home: HOME_DEF, about: ABOUT_DEF, collection: COLLECTION_DEF, contact: CONTACT_DEF, site: SITE_DEF } as const;
+export const GALLERY_DEF: DocDef = {
+  key: 'gallery',
+  title: 'Gallery page',
+  description: 'Photos and videos shown in the full-screen gallery.',
+  viewPath: '/gallery',
+  fields: [
+    seoGroup('Gallery page'),
+    {
+      name: 'intro',
+      label: 'Page introduction',
+      type: 'group',
+      fields: [
+        { name: 'script', label: 'Handwritten line', type: 'text' },
+        { name: 'headline', label: 'Headline', type: 'text' },
+        { name: 'text', label: 'Introduction', type: 'textarea', rows: 4 },
+      ],
+    },
+    {
+      name: 'items',
+      label: 'Photos and videos',
+      type: 'list',
+      itemNoun: 'photo or video',
+      titleField: 'caption',
+      max: 100,
+      help: 'Photos open large when tapped. Videos can be uploaded or linked from YouTube or Vimeo.',
+      fields: [
+        {
+          name: 'kind',
+          label: 'Type',
+          type: 'select',
+          options: [
+            { label: 'Photo', value: 'image' },
+            { label: 'Video', value: 'video' },
+          ],
+        },
+        { name: 'src', label: 'File or link', type: 'media', help: 'Upload, choose from the library, or paste a YouTube or Vimeo link for a video.' },
+        { name: 'poster', label: 'Video cover photo (optional)', type: 'image', help: 'Shown before an uploaded video plays.' },
+        { name: 'alt', label: 'Description for screen readers and search', type: 'text' },
+        { name: 'caption', label: 'Caption (optional)', type: 'text' },
+        { name: 'category', label: 'Topic (optional)', type: 'text', help: 'Items with the same topic are grouped in the gallery filter.' },
+      ],
+    },
+    ctaGroup,
+  ],
+};
+
+export const INSIGHTS_DEF: DocDef = {
+  key: 'insights',
+  title: 'Insights page',
+  description: 'Publish massage and wellness guides, drafts, and scheduled articles.',
+  viewPath: '/insights',
+  fields: [
+    seoGroup('Insights page'),
+    {
+      name: 'intro',
+      label: 'Page introduction',
+      type: 'group',
+      fields: [
+        { name: 'script', label: 'Handwritten line', type: 'text' },
+        { name: 'headline', label: 'Headline', type: 'text' },
+        { name: 'text', label: 'Introduction', type: 'textarea', rows: 4 },
+      ],
+    },
+    {
+      name: 'articles',
+      label: 'Articles',
+      type: 'group',
+      fields: [
+        {
+          name: 'items',
+          label: 'Articles',
+          type: 'list',
+          itemNoun: 'article',
+          titleField: 'title',
+          max: 100,
+          fields: [
+            { name: 'title', label: 'Title', type: 'text' },
+            { name: 'slug', label: 'URL ending (optional)', type: 'text', help: 'Leave blank to create it from the title.' },
+            { name: 'category', label: 'Topic', type: 'text' },
+            { name: 'excerpt', label: 'Short summary', type: 'textarea', rows: 3, maxLength: 500 },
+            { name: 'date', label: 'Publish date', type: 'date', help: 'Leave blank to publish immediately.' },
+            { name: 'updated', label: 'Updated date (optional)', type: 'date' },
+            { name: 'author', label: 'Author (optional)', type: 'text' },
+            {
+              name: 'body',
+              label: 'Article',
+              type: 'textarea',
+              rows: 20,
+              maxLength: 20000,
+              help: 'Plain text with simple Markdown: ## headings, **bold**, *italic*, lists, quotes, and [links](https://example.com).',
+            },
+            { name: 'cover', label: 'Cover photo (optional)', type: 'image' },
+            { name: 'coverAlt', label: 'Cover photo description', type: 'text' },
+            {
+              name: 'tone',
+              label: 'Illustrated cover colour',
+              type: 'select',
+              options: [
+                { label: 'Sand', value: 'sand' },
+                { label: 'Rose', value: 'rose' },
+                { label: 'Sage', value: 'sage' },
+                { label: 'Clay', value: 'clay' },
+              ],
+            },
+            { name: 'icon', label: 'Illustrated cover icon', type: 'select', options: ICON_OPTIONS },
+            {
+              name: 'status',
+              label: 'Status',
+              type: 'select',
+              options: [
+                { label: 'Draft', value: 'draft' },
+                { label: 'Published', value: 'published' },
+              ],
+            },
+            { name: 'featured', label: 'Feature this article', type: 'boolean' },
+          ],
+        },
+      ],
+    },
+    ctaGroup,
+  ],
+};
+
+export const DOCS = {
+  home: HOME_DEF,
+  about: ABOUT_DEF,
+  collection: COLLECTION_DEF,
+  contact: CONTACT_DEF,
+  gallery: GALLERY_DEF,
+  insights: INSIGHTS_DEF,
+  site: SITE_DEF,
+} as const;
 export type DocKey = keyof typeof DOCS;
 
 export const DEFAULTS: Record<DocKey, unknown> = {
@@ -675,6 +814,8 @@ export const DEFAULTS: Record<DocKey, unknown> = {
   about: ABOUT_DEFAULTS,
   collection: COLLECTION_DEFAULTS,
   contact: CONTACT_DEFAULTS,
+  gallery: GALLERY_DEFAULTS,
+  insights: INSIGHTS_DEFAULTS,
   site: SITE_DEFAULTS,
 };
 
