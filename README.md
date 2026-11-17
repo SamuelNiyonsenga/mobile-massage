@@ -112,7 +112,7 @@ Create `/etc/zamukapos.env` on the VPS with production values; generate the sess
 ADMIN_PASSWORD=use-a-long-unique-password
 SESSION_SECRET=replace-this-with-the-output-of-openssl-rand-hex-32
 CMS_DATA_DIR=/var/lib/zamukapos/content
-SITE_URL=https://massage.zamukapos.io
+SITE_URL=https://massagehome.zamukapos.io
 ```
 
 Restrict the file with `sudo chown root:root /etc/zamukapos.env && sudo chmod 600 /etc/zamukapos.env`.
@@ -154,12 +154,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable zamukapos
 ```
 
-Configure nginx for `massage.zamukapos.io`:
+Configure nginx for `massagehome.zamukapos.io`:
 
 ```nginx
 server {
     listen 80;
-    server_name massage.zamukapos.io;
+    server_name massagehome.zamukapos.io;
     client_max_body_size 60m;
 
     location / {
@@ -173,7 +173,7 @@ server {
 }
 ```
 
-Point the `massage` subdomain's DNS A record to the VPS, allow inbound web traffic, and enable HTTPS (for example with Certbot). Set the website address in the CMS under Site settings → Search and social to `https://massage.zamukapos.io` as well; that value takes precedence over `SITE_URL`. Keep `/var/lib/zamukapos/content` when deploying: it stores CMS pages, drafts, history, and uploaded media.
+Point the `massagehome` subdomain's DNS A record to the VPS, allow inbound web traffic, and enable HTTPS (for example with Certbot). Set the website address in the CMS under Site settings → Search and social to `https://massagehome.zamukapos.io` as well; that value takes precedence over `SITE_URL`. Keep `/var/lib/zamukapos/content` when deploying: it stores CMS pages, drafts, history, and uploaded media.
 
 ### GitHub configuration
 
