@@ -1,0 +1,10 @@
+# Add this block to /etc/caddy/Caddyfile on the VPS (below the existing site blocks).
+# Caddy gets and renews the HTTPS certificate on its own.
+# TODO: replace massagehome.zamukapos.io with the client's own domain when they have one.
+massagehome.zamukapos.io {
+	encode zstd gzip
+	request_body {
+		max_size 60MB # videos can be up to 50 MB
+	}
+	reverse_proxy 127.0.0.1:3030
+}
